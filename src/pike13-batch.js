@@ -1,4 +1,4 @@
-/* pike13-batch v1.2.1
+/* pike13-batch v1.3.0
  *
  * Bookmarklet for bulk-editing Pike13 product configuration.
  * v1 supports Service type (Appointment / GroupClass / Course).
@@ -355,6 +355,34 @@
     }
     .row > input[type=text]:focus, .row > select:focus { outline: 2px solid #4287f5; }
 
+    /* Combobox styled to match the native Type/Category <select> visuals */
+    .combo { position: relative; flex: 1; }
+    .combo-input {
+      width: 100%; padding: 4px 24px 4px 6px;
+      border: 1px solid #ccc; border-radius: 3px; font: inherit;
+      background: #fff;
+    }
+    .combo-input:focus { outline: 2px solid #4287f5; }
+    .combo-arrow {
+      position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+      pointer-events: none; color: #555; font-size: 9px;
+    }
+    .combo-menu {
+      display: none; position: absolute; top: calc(100% + 2px); left: 0; right: 0;
+      max-height: 240px; overflow: auto; background: #fff;
+      border: 1px solid #ccc; border-radius: 3px; z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .combo-menu.open { display: block; }
+    .combo-item {
+      padding: 4px 8px; cursor: pointer; font-size: 12px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .combo-item:hover, .combo-item.active { background: #eef2f8; }
+    .combo-item.empty { color: #999; font-style: italic; cursor: default; }
+    .combo-item.empty:hover { background: transparent; }
+    .combo-item .custom-hint { color: #666; font-style: italic; }
+
     .count { font-size: 12px; color: #666; margin: 4px 0 8px; }
     .count strong { color: #222; }
 
@@ -484,6 +512,95 @@
     return e;
   }
 
+  // Combobox: looks like a native <select> but supports type-to-filter and
+  // accepting custom values typed by the user. options is [{value, label}].
+  // onPick is called with the chosen value (existing option OR custom string).
+  function comboBox({ options, placeholder, onPick }) {
+    const wrap = el('div', { class: 'combo' });
+    const input = el('input', {
+      type: 'text', class: 'combo-input',
+      placeholder, autocomplete: 'off', spellcheck: 'false',
+    });
+    const arrow = el('div', { class: 'combo-arrow' }, ['▼']);
+    const menu = el('div', { class: 'combo-menu' });
+    wrap.appendChild(input); wrap.appendChild(arrow); wrap.appendChild(menu);
+
+    let isOpen = false;
+    let highlight = -1;
+    let filtered = options.slice();
+
+    const open = () => { isOpen = true; menu.classList.add('open'); renderMenu(); };
+    const close = () => { isOpen = false; menu.classList.remove('open'); highlight = -1; };
+    const filter = () => {
+      const q = input.value.trim().toLowerCase();
+      filtered = !q ? options.slice()
+        : options.filter((o) =>
+            o.label.toLowerCase().includes(q) ||
+            (o.value || '').toLowerCase().includes(q));
+      highlight = filtered.length ? 0 : -1;
+      renderMenu();
+    };
+    const renderMenu = () => {
+      menu.innerHTML = '';
+      const q = input.value.trim();
+      if (!filtered.length) {
+        if (q) {
+          // Allow accepting the typed value as a custom name
+          menu.appendChild(el('div', {
+            class: 'combo-item',
+            onmousedown: (e) => { e.preventDefault(); accept(q); },
+          }, [
+            'Add custom: ',
+            el('span', { class: 'custom-hint' }, [q]),
+          ]));
+        } else {
+          menu.appendChild(el('div', { class: 'combo-item empty' }, ['No options']));
+        }
+        return;
+      }
+      filtered.forEach((opt, i) => {
+        menu.appendChild(el('div', {
+          class: 'combo-item' + (i === highlight ? ' active' : ''),
+          // mousedown (not click) so we accept before input loses focus
+          onmousedown: (e) => { e.preventDefault(); accept(opt.value); },
+        }, [opt.label]));
+      });
+    };
+    const accept = (val) => {
+      input.value = '';
+      close();
+      onPick(val);
+    };
+
+    input.addEventListener('focus', () => { filter(); open(); });
+    input.addEventListener('input', () => { filter(); if (!isOpen) open(); });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { close(); return; }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        highlight = Math.min(highlight + 1, filtered.length - 1);
+        renderMenu();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        highlight = Math.max(highlight - 1, 0);
+        renderMenu();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (highlight >= 0 && filtered[highlight]) accept(filtered[highlight].value);
+        else if (input.value.trim()) accept(input.value.trim());
+      }
+    });
+    // Close when focus leaves the combo entirely (input blur OR menu blur).
+    // mousedown handlers above call e.preventDefault() to keep focus inside.
+    wrap.addEventListener('focusout', (e) => {
+      if (!wrap.contains(e.relatedTarget)) close();
+    });
+    // Make the menu focusable so clicks inside it can keep focus on the wrap.
+    menu.tabIndex = -1;
+
+    return wrap;
+  }
+
   function render() {
     panel.innerHTML = '';
     panel.appendChild(renderHeader());
@@ -502,7 +619,7 @@
 
   function renderHeader() {
     return el('header', {}, [
-      el('div', { class: 'title' }, [`pike13-batch v1.2.1`]),
+      el('div', { class: 'title' }, [`pike13-batch v1.3.0`]),
       el('div', { class: 'sub' }, [SUBDOMAIN]),
       el('div', { class: 'x', title: 'Close', onclick: close }, ['×']),
     ]);
@@ -627,20 +744,17 @@
     const available = state.refFields.filter((f) => !picked.has(f.name));
     const prefix = prefixFor(state.refSvc);
 
-    const datalistId = 'pike13-batch-fields';
+    const combo = comboBox({
+      options: available.map((f) => ({ value: f.label, label: f.label })),
+      placeholder: `Pick or type any ${prefix}[…] field name`,
+      onPick: (val) => addPickedField(val, prefix),
+    });
     const addRow = el('div', { class: 'row' }, [
       el('label', { title: `Field name will be sent as ${prefix}[…]` }, ['Add field']),
-      el('input', {
-        type: 'text',
-        list: datalistId,
-        placeholder: `Pick or type any ${prefix}[…] field name`,
-        onchange: (e) => addPickedField(e.target.value.trim(), prefix, e.target),
-      }),
-      el('datalist', { id: datalistId },
-        available.map((f) => el('option', { value: f.label, label: f.name }))),
+      combo,
     ]);
 
-    function addPickedField(input, prefix, inputEl) {
+    function addPickedField(input, prefix) {
       if (!input) return;
       // Match a discovered field by short label or full name first; fall back
       // to treating the input as a custom name and constructing the full prefix.
@@ -659,7 +773,6 @@
         state.refFields.push(synthetic);
         state.pickerSel[fullName] = '';
       }
-      if (inputEl) inputEl.value = '';
       state.testResult = null;
       if (state.stage === 'tested') state.stage = 'configure';
       render();
@@ -994,7 +1107,7 @@
 
   function downloadReport() {
     const report = {
-      tool: 'pike13-batch v1.2.1',
+      tool: 'pike13-batch v1.3.0',
       subdomain: SUBDOMAIN,
       timestamp: new Date().toISOString(),
       filter: state.filter,
