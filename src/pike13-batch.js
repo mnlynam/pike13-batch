@@ -1,4 +1,4 @@
-/* pike13-batch v1.2.0
+/* pike13-batch v1.2.1
  *
  * Bookmarklet for bulk-editing Pike13 product configuration.
  * v1 supports Service type (Appointment / GroupClass / Course).
@@ -397,6 +397,21 @@
                    font: 12px ui-monospace, Menlo, Consolas, monospace; }
     .raw-err { color: #c00; font-size: 12px; margin-top: 4px; }
 
+    details.help { margin-top: 8px; font-size: 12px; }
+    details.help summary { cursor: pointer; color: #2b3a55;
+                           padding: 2px 0; user-select: none; }
+    details.help summary:hover { text-decoration: underline; }
+    .help-tbl { width: 100%; border-collapse: collapse; margin-top: 4px;
+                background: #f7f9fc; border: 1px solid #dde3ec; border-radius: 3px; }
+    .help-tbl th, .help-tbl td { padding: 4px 8px; text-align: left;
+                                 border-bottom: 1px solid #e6ebf2;
+                                 font-size: 11px; vertical-align: top; }
+    .help-tbl th { color: #555; font-weight: 600; background: #eef2f8; }
+    .help-tbl tr:last-child td { border-bottom: 0; }
+    .help-tbl code { font: 11px ui-monospace, Menlo, Consolas, monospace;
+                     color: #1c3a6e; }
+    .help-note { color: #666; margin-top: 6px; font-size: 11px; }
+
     .actions { display: flex; gap: 6px; margin-top: 10px; align-items: center; }
     .actions .spacer { flex: 1; }
     button {
@@ -487,7 +502,7 @@
 
   function renderHeader() {
     return el('header', {}, [
-      el('div', { class: 'title' }, [`pike13-batch v1.2`]),
+      el('div', { class: 'title' }, [`pike13-batch v1.2.1`]),
       el('div', { class: 'sub' }, [SUBDOMAIN]),
       el('div', { class: 'x', title: 'Close', onclick: close }, ['×']),
     ]);
@@ -742,14 +757,9 @@
   }
 
   function renderRaw() {
-    const help = `// Keys are field names (with or without the type prefix).
-// Examples (all equivalent for Appointment):
-//   "snap_duration_in_minutes": "15"
-//   "[snap_duration_in_minutes]": "15"
-//   "appointment[snap_duration_in_minutes]": "15"
-// Values are strings. Arrays send multiple form values.`;
     return el('div', {}, [
-      el('div', { class: 'count' }, ['Raw push payload — JSON object. Auto-prefixes by service subtype.']),
+      el('div', { class: 'count' },
+        ['JSON object. Keys auto-prefix to the matched service subtype.']),
       el('textarea', {
         class: 'raw',
         placeholder: '{\n  "snap_duration_in_minutes": "15"\n}',
@@ -763,13 +773,25 @@
           }
           state.testResult = null;
           if (state.stage === 'tested') state.stage = 'configure';
-          // Inline error display
           const errEl = root.querySelector('.raw-err');
           if (errEl) errEl.textContent = state.rawError;
         },
       }, [state.rawText]),
       el('div', { class: 'raw-err' }, [state.rawError]),
-      el('div', { class: 'count' }, [help]),
+      el('details', { class: 'help' }, [
+        el('summary', {}, ['Key syntax']),
+        el('table', { class: 'help-tbl' }, [
+          el('tr', {}, [el('th', {}, ['You write']), el('th', {}, ['Sent as'])]),
+          el('tr', {}, [el('td', {}, [el('code', {}, ['snap_duration_in_minutes'])]),
+                        el('td', {}, [el('code', {}, ['{type}[snap_duration_in_minutes]'])])]),
+          el('tr', {}, [el('td', {}, [el('code', {}, ['[snap_duration_in_minutes]'])]),
+                        el('td', {}, [el('code', {}, ['{type}[snap_duration_in_minutes]'])])]),
+          el('tr', {}, [el('td', {}, [el('code', {}, ['appointment[snap_duration_in_minutes]'])]),
+                        el('td', {}, [el('code', {}, ['(verbatim)'])])]),
+        ]),
+        el('div', { class: 'help-note' },
+          ['Values are strings. Use a JSON array to send multiple form values.']),
+      ]),
     ]);
   }
 
@@ -972,7 +994,7 @@
 
   function downloadReport() {
     const report = {
-      tool: 'pike13-batch v1.2.0',
+      tool: 'pike13-batch v1.2.1',
       subdomain: SUBDOMAIN,
       timestamp: new Date().toISOString(),
       filter: state.filter,
