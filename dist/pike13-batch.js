@@ -372,6 +372,12 @@
     .picker .field:hover { background: #fff; }
     .picker .field code { font-size: 11px; color: #444;
                           word-break: break-all; }
+    .picker .field .remove {
+      width: 18px; height: 18px; line-height: 16px;
+      text-align: center; cursor: pointer; color: #999;
+      border-radius: 3px; font-size: 14px; user-select: none;
+    }
+    .picker .field .remove:hover { background: #fdd; color: #c00; }
     .picker .field input[type=text],
     .picker .field input[type=number],
     .picker .field select,
@@ -597,23 +603,54 @@
   }
 
   function renderFieldList() {
-    const wrap = el('div', { class: 'picker' }, []);
-    for (const f of state.refFields) {
-      const checked = f.name in state.pickerSel;
-      const ck = el('input', {
-        type: 'checkbox', class: 'ck', checked,
+    // Available = all reference fields not already picked
+    const picked = new Set(Object.keys(state.pickerSel));
+    const available = state.refFields.filter((f) => !picked.has(f.name));
+
+    const addRow = el('div', { class: 'row' }, [
+      el('label', {}, ['Add field']),
+      el('select', {
         onchange: (e) => {
-          if (e.target.checked) state.pickerSel[f.name] = currentEditorValue(f);
-          else delete state.pickerSel[f.name];
+          const name = e.target.value;
+          if (!name) return;
+          const f = state.refFields.find((x) => x.name === name);
+          if (f) state.pickerSel[name] = currentEditorValue(f);
           state.testResult = null;
           if (state.stage === 'tested') state.stage = 'configure';
+          render();
         },
-      });
-      const label = el('code', { title: f.name }, [f.label]);
-      const editor = renderEditor(f);
-      wrap.appendChild(el('div', { class: 'field' }, [ck, label, editor]));
-    }
-    return wrap;
+      }, [
+        el('option', { value: '' },
+          [available.length
+            ? `— pick from ${available.length} available field${available.length === 1 ? '' : 's'} —`
+            : '— all fields picked —']),
+        ...available.map((f) =>
+          el('option', { value: f.name }, [f.label])),
+      ]),
+    ]);
+
+    const selectedRows = Object.keys(state.pickerSel).map((name) => {
+      const f = state.refFields.find((x) => x.name === name);
+      if (!f) return null;
+      return el('div', { class: 'field' }, [
+        el('div', { class: 'remove', title: 'Remove this field',
+                    onclick: () => {
+                      delete state.pickerSel[name];
+                      state.testResult = null;
+                      if (state.stage === 'tested') state.stage = 'configure';
+                      render();
+                    } }, ['×']),
+        el('code', { title: f.name }, [f.label]),
+        renderEditor(f),
+      ]);
+    }).filter(Boolean);
+
+    const list = selectedRows.length
+      ? el('div', { class: 'picker' }, selectedRows)
+      : el('div', { class: 'count' },
+          [`No fields picked yet. Use the dropdown above to add one.`]);
+
+    return el('div', {}, [addRow, list]);
   }
 
   function renderEditor(f) {
