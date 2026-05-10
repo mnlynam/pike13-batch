@@ -1,4 +1,4 @@
-/* pike13-batch v1.0.0
+/* pike13-batch v1.1.0
  *
  * Bookmarklet for bulk-editing Pike13 product configuration.
  * v1 supports Service type (Appointment / GroupClass / Course).
@@ -483,7 +483,7 @@
 
   function renderHeader() {
     return el('header', {}, [
-      el('div', { class: 'title' }, [`pike13-batch v1.0`]),
+      el('div', { class: 'title' }, [`pike13-batch v1.1`]),
       el('div', { class: 'sub' }, [SUBDOMAIN]),
       el('div', { class: 'x', title: 'Close', onclick: close }, ['×']),
     ]);
@@ -954,7 +954,7 @@
 
   function downloadReport() {
     const report = {
-      tool: 'pike13-batch v1.0.0',
+      tool: 'pike13-batch v1.1.0',
       subdomain: SUBDOMAIN,
       timestamp: new Date().toISOString(),
       filter: state.filter,

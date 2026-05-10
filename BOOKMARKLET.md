@@ -10,10 +10,10 @@ javascript:(()=>{var s=document.createElement('script');s.src='https://cdn.jsdel
 
 ## Pinned (recommended for daily use)
 
-Loads a specific tagged version. Replace `v1.0.0` with the desired tag:
+Loads a specific tagged version. Replace `v1.1.0` with the desired tag:
 
 ```
-javascript:(()=>{var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/gh/mnlynam/pike13-batch@v1.0.0/dist/pike13-batch.js';document.body.appendChild(s);})();
+javascript:(()=>{var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/gh/mnlynam/pike13-batch@v1.1.0/dist/pike13-batch.js';document.body.appendChild(s);})();
 ```
 
 ## How to install in Chrome / Edge
