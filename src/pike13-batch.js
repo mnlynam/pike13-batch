@@ -382,9 +382,13 @@
     .picker .field input[type=number],
     .picker .field select,
     .picker .field textarea {
-      width: 100%; padding: 2px 4px; border: 1px solid #ccc;
-      border-radius: 2px; font: inherit;
+      width: 100%; padding: 4px 6px; border: 1px solid #ccc;
+      border-radius: 3px; font: inherit;
     }
+    .picker .field input[type=text]:focus,
+    .picker .field input[type=number]:focus,
+    .picker .field select:focus,
+    .picker .field textarea:focus { outline: 2px solid #4287f5; }
     .picker .field textarea { min-height: 32px; resize: vertical; }
     .picker .field .ck { width: 16px; height: 16px; }
 
