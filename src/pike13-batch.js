@@ -584,22 +584,22 @@
     if (state.matched.length === 0) {
       return el('div', { class: 'count' }, ['No matches — adjust filters above.']);
     }
-    return el('div', {}, [
-      el('div', { class: 'row' }, [
-        el('label', {}, ['Reference']),
-        el('select', {
-          onchange: (e) => loadReferenceFields(e.target.value),
-        }, [
-          el('option', { value: '' }, ['— pick a service to harvest fields —']),
-          ...state.matched.map((s) =>
-            el('option', { value: s.id, selected: state.refSvc && state.refSvc.id === s.id },
-              [`${s.name} (${s.type})`])),
-        ]),
-      ]),
-      state.refSvc ? renderFieldList() : el('div', { class: 'count' },
-        [`Pick a reference. Its fields become the editable set; `,
-         `same fields are pushed to all ${state.matched.length} matched items.`]),
-    ]);
+    // Mixed-type matches need a Type filter so we know which schema to load
+    const types = new Set(state.matched.map((s) => s.type));
+    if (types.size > 1) {
+      return el('div', { class: 'count' },
+        [`Matched set contains ${types.size} service types (${[...types].join(', ')}). `,
+         `Pick a Type filter above to load that subtype's fields.`]);
+    }
+    // Auto-load reference fields from the first matched item if not already loaded
+    if (!state.refSvc || state.refSvc.id !== state.matched[0].id) {
+      autoLoadFieldsFor(state.matched[0]);
+    }
+    if (!state.refFields.length) {
+      return el('div', { class: 'count' },
+        [`Loading available fields from ${state.matched[0].name}…`]);
+    }
+    return renderFieldList();
   }
 
   function renderFieldList() {
@@ -607,26 +607,29 @@
     const picked = new Set(Object.keys(state.pickerSel));
     const available = state.refFields.filter((f) => !picked.has(f.name));
 
+    const datalistId = 'pike13-batch-fields';
     const addRow = el('div', { class: 'row' }, [
       el('label', {}, ['Add field']),
-      el('select', {
+      el('input', {
+        type: 'text',
+        list: datalistId,
+        placeholder: available.length
+          ? `Type to filter ${available.length} field${available.length === 1 ? '' : 's'}…`
+          : 'All fields picked',
         onchange: (e) => {
-          const name = e.target.value;
+          const name = e.target.value.trim();
           if (!name) return;
-          const f = state.refFields.find((x) => x.name === name);
-          if (f) state.pickerSel[name] = currentEditorValue(f);
+          const f = state.refFields.find((x) => x.name === name || x.label === name);
+          if (!f) return;        // typed an unknown name — ignore
+          if (f.name in state.pickerSel) return;
+          state.pickerSel[f.name] = currentEditorValue(f);
           state.testResult = null;
           if (state.stage === 'tested') state.stage = 'configure';
           render();
         },
-      }, [
-        el('option', { value: '' },
-          [available.length
-            ? `— pick from ${available.length} available field${available.length === 1 ? '' : 's'} —`
-            : '— all fields picked —']),
-        ...available.map((f) =>
-          el('option', { value: f.name }, [f.label])),
-      ]),
+      }),
+      el('datalist', { id: datalistId },
+        available.map((f) => el('option', { value: f.label, label: f.name }))),
     ]);
 
     const selectedRows = Object.keys(state.pickerSel).map((name) => {
@@ -694,23 +697,29 @@
     return f.value;
   }
 
-  async function loadReferenceFields(id) {
-    if (!id) {
-      state.refSvc = null; state.refFields = []; state.pickerSel = {};
-      render(); return;
-    }
-    const svc = state.matched.find((s) => String(s.id) === String(id));
-    if (!svc) return;
-    state.refSvc = svc; state.refFields = []; state.pickerSel = {};
-    render();
+  // Auto-load reference fields from a service. Idempotent — guarded against
+  // overlapping fetches if the user changes filters mid-flight.
+  let _loadingRefId = null;
+  async function autoLoadFieldsFor(svc) {
+    if (_loadingRefId === svc.id) return;
+    _loadingRefId = svc.id;
+    // Wipe picker selections if subtype changes (prefixes won't match new schema)
+    if (state.refSvc && state.refSvc.type !== svc.type) state.pickerSel = {};
+    state.refSvc = svc; state.refFields = [];
     try {
       const form = await fetchEditForm(svc);
+      if (_loadingRefId !== svc.id) return;     // superseded by another load
       state.refFields = parseFormFields(form, prefixFor(svc));
       render();
     } catch (e) {
-      alert(`Failed to load reference fields: ${e.message}`);
-      state.refSvc = null;
-      render();
+      if (_loadingRefId !== svc.id) return;
+      const body = panel.querySelector('.body');
+      if (body) {
+        body.appendChild(el('div', { class: 'count', style: { color: '#c00' } },
+          [`Failed to load fields from ${svc.name}: ${e.message}`]));
+      }
+    } finally {
+      if (_loadingRefId === svc.id) _loadingRefId = null;
     }
   }
 
