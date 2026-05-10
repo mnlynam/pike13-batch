@@ -1,4 +1,4 @@
-/* pike13-batch v1.1.0
+/* pike13-batch v1.2.0
  *
  * Bookmarklet for bulk-editing Pike13 product configuration.
  * v1 supports Service type (Appointment / GroupClass / Course).
@@ -487,7 +487,7 @@
 
   function renderHeader() {
     return el('header', {}, [
-      el('div', { class: 'title' }, [`pike13-batch v1.1`]),
+      el('div', { class: 'title' }, [`pike13-batch v1.2`]),
       el('div', { class: 'sub' }, [SUBDOMAIN]),
       el('div', { class: 'x', title: 'Close', onclick: close }, ['×']),
     ]);
@@ -610,31 +610,45 @@
     // Available = all reference fields not already picked
     const picked = new Set(Object.keys(state.pickerSel));
     const available = state.refFields.filter((f) => !picked.has(f.name));
+    const prefix = prefixFor(state.refSvc);
 
     const datalistId = 'pike13-batch-fields';
     const addRow = el('div', { class: 'row' }, [
-      el('label', {}, ['Add field']),
+      el('label', { title: `Field name will be sent as ${prefix}[…]` }, ['Add field']),
       el('input', {
         type: 'text',
         list: datalistId,
-        placeholder: available.length
-          ? `Type to filter ${available.length} field${available.length === 1 ? '' : 's'}…`
-          : 'All fields picked',
-        onchange: (e) => {
-          const name = e.target.value.trim();
-          if (!name) return;
-          const f = state.refFields.find((x) => x.name === name || x.label === name);
-          if (!f) return;        // typed an unknown name — ignore
-          if (f.name in state.pickerSel) return;
-          state.pickerSel[f.name] = currentEditorValue(f);
-          state.testResult = null;
-          if (state.stage === 'tested') state.stage = 'configure';
-          render();
-        },
+        placeholder: `Pick or type any ${prefix}[…] field name`,
+        onchange: (e) => addPickedField(e.target.value.trim(), prefix, e.target),
       }),
       el('datalist', { id: datalistId },
         available.map((f) => el('option', { value: f.label, label: f.name }))),
     ]);
+
+    function addPickedField(input, prefix, inputEl) {
+      if (!input) return;
+      // Match a discovered field by short label or full name first; fall back
+      // to treating the input as a custom name and constructing the full prefix.
+      let f = state.refFields.find((x) => x.name === input || x.label === input);
+      if (f) {
+        if (!(f.name in state.pickerSel)) {
+          state.pickerSel[f.name] = currentEditorValue(f);
+        }
+      } else {
+        const fullName = resolveRawKey(input, prefix);
+        if (fullName in state.pickerSel) return;
+        const synthetic = {
+          name: fullName, type: 'text', value: '',
+          label: prettyLabel(fullName, prefix),
+        };
+        state.refFields.push(synthetic);
+        state.pickerSel[fullName] = '';
+      }
+      if (inputEl) inputEl.value = '';
+      state.testResult = null;
+      if (state.stage === 'tested') state.stage = 'configure';
+      render();
+    }
 
     const selectedRows = Object.keys(state.pickerSel).map((name) => {
       const f = state.refFields.find((x) => x.name === name);
@@ -958,7 +972,7 @@
 
   function downloadReport() {
     const report = {
-      tool: 'pike13-batch v1.1.0',
+      tool: 'pike13-batch v1.2.0',
       subdomain: SUBDOMAIN,
       timestamp: new Date().toISOString(),
       filter: state.filter,

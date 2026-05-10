@@ -14,7 +14,7 @@ Drag this to your bookmarks bar (or copy and create a new bookmark with this URL
 javascript:(()=>{var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/gh/mnlynam/pike13-batch@latest/dist/pike13-batch.js?'+Date.now();document.body.appendChild(s);})();
 ```
 
-The `?+Date.now()` defeats jsdelivr's edge cache so iteration is live. For stable use, pin a version: `@v1.1.0`.
+The `?+Date.now()` defeats jsdelivr's edge cache so iteration is live. For stable use, pin a version: `@v1.2.0`.
 
 ---
 
@@ -67,7 +67,7 @@ The panel persists during apply so you can watch progress and download a JSON re
 
 - Source: this repo
 - CDN: `cdn.jsdelivr.net/gh/mnlynam/pike13-batch@latest/dist/pike13-batch.js`
-- Versioned: `cdn.jsdelivr.net/gh/mnlynam/pike13-batch@v1.1.0/dist/pike13-batch.js`
+- Versioned: `cdn.jsdelivr.net/gh/mnlynam/pike13-batch@v1.2.0/dist/pike13-batch.js`
 
 jsdelivr serves GitHub content with the right MIME type and edge cache. raw.githubusercontent.com does not.
 
