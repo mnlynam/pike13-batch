@@ -302,15 +302,27 @@
   // ============================================================
   const host = document.createElement('div');
   host.id = HOST_ID;
+  // Center on load. Drag-to-move clears `transform` and switches to absolute left/top.
+  // Append to <html>, not <body>, so any CSS `zoom`/`transform` on body doesn't scale us.
   Object.assign(host.style, {
-    position: 'fixed', top: '12px', right: '12px',
+    position: 'fixed', top: '50%', left: '50%',
+    transform: 'translate(-50%, -50%)',
     zIndex: '2147483647',
   });
-  document.body.appendChild(host);
+  document.documentElement.appendChild(host);
   const root = host.attachShadow({ mode: 'open' });
 
   const styleEl = document.createElement('style');
   styleEl.textContent = `
+    /* Zoom independence: shadow DOM blocks most styling, but inheritable
+       properties (font-size, color, zoom) cross the boundary. Pin them so
+       Pike13's CSS zoom or font-size scaling can't shrink/grow our panel. */
+    :host {
+      zoom: 1 !important;
+      font: 13px/1.4 -apple-system, "Segoe UI", system-ui, Arial, sans-serif !important;
+      color: #222 !important;
+      text-align: left !important;
+    }
     :host, * { box-sizing: border-box; }
     .panel {
       width: 480px; max-height: 90vh; overflow: hidden;
@@ -933,6 +945,8 @@
       sx = e.clientX; sy = e.clientY;
       const r = host.getBoundingClientRect();
       ox = r.left; oy = r.top;
+      // First drag releases the centering transform so left/top become absolute
+      host.style.transform = 'none';
       e.preventDefault();
     });
     window.addEventListener('mousemove', (e) => {
