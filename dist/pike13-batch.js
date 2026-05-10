@@ -1,4 +1,4 @@
-/* pike13-batch v1.3.0
+/* pike13-batch v1.3.1
  *
  * Bookmarklet for bulk-editing Pike13 product configuration.
  * v1 supports Service type (Appointment / GroupClass / Course).
@@ -368,10 +368,12 @@
       pointer-events: none; color: #555; font-size: 9px;
     }
     .combo-menu {
-      display: none; position: absolute; top: calc(100% + 2px); left: 0; right: 0;
-      max-height: 240px; overflow: auto; background: #fff;
-      border: 1px solid #ccc; border-radius: 3px; z-index: 100;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      /* position: fixed so the menu escapes the panel body's overflow:auto.
+         Coords (top/left/width/maxHeight) are set by JS at open time. */
+      display: none; position: fixed; background: #fff;
+      border: 1px solid #ccc; border-radius: 3px;
+      z-index: 2147483647; overflow: auto;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.18);
     }
     .combo-menu.open { display: block; }
     .combo-item {
@@ -529,8 +531,40 @@
     let highlight = -1;
     let filtered = options.slice();
 
-    const open = () => { isOpen = true; menu.classList.add('open'); renderMenu(); };
-    const close = () => { isOpen = false; menu.classList.remove('open'); highlight = -1; };
+    // Position the menu in viewport coords so it escapes the panel's overflow.
+    // Flip upward if there's not enough room below the input.
+    const positionMenu = () => {
+      const r = input.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - r.bottom - 8;
+      const spaceAbove = r.top - 8;
+      const openUp = spaceBelow < 160 && spaceAbove > spaceBelow;
+      const maxH = Math.min(240, openUp ? spaceAbove : spaceBelow);
+      menu.style.left = r.left + 'px';
+      menu.style.width = r.width + 'px';
+      menu.style.maxHeight = maxH + 'px';
+      if (openUp) {
+        menu.style.bottom = (window.innerHeight - r.top + 2) + 'px';
+        menu.style.top = '';
+      } else {
+        menu.style.top = (r.bottom + 2) + 'px';
+        menu.style.bottom = '';
+      }
+    };
+    const onReposition = () => { if (isOpen) positionMenu(); };
+
+    const open = () => {
+      isOpen = true;
+      positionMenu();
+      menu.classList.add('open');
+      renderMenu();
+      window.addEventListener('scroll', onReposition, true);
+      window.addEventListener('resize', onReposition);
+    };
+    const close = () => {
+      isOpen = false; menu.classList.remove('open'); highlight = -1;
+      window.removeEventListener('scroll', onReposition, true);
+      window.removeEventListener('resize', onReposition);
+    };
     const filter = () => {
       const q = input.value.trim().toLowerCase();
       filtered = !q ? options.slice()
@@ -619,7 +653,7 @@
 
   function renderHeader() {
     return el('header', {}, [
-      el('div', { class: 'title' }, [`pike13-batch v1.3.0`]),
+      el('div', { class: 'title' }, [`pike13-batch v1.3.1`]),
       el('div', { class: 'sub' }, [SUBDOMAIN]),
       el('div', { class: 'x', title: 'Close', onclick: close }, ['×']),
     ]);
@@ -1107,7 +1141,7 @@
 
   function downloadReport() {
     const report = {
-      tool: 'pike13-batch v1.3.0',
+      tool: 'pike13-batch v1.3.1',
       subdomain: SUBDOMAIN,
       timestamp: new Date().toISOString(),
       filter: state.filter,
